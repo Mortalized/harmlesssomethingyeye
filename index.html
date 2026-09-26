@@ -88,6 +88,16 @@
     line-height: 2;
     white-space: pre-wrap;
   }
+  #report.warning-flash { animation: warnflash 0.1s steps(2, start) infinite; }
+  @keyframes warnflash { to { visibility: hidden; } }
+  #report.vanish { animation: vanishout 0.25s steps(3, start) forwards; }
+  @keyframes vanishout {
+    0% { opacity: 1; }
+    60% { opacity: 0.2; }
+    80% { opacity: 0.7; }
+    100% { opacity: 0; visibility: hidden; }
+  }
+  .warnline { color: #cc0000; font-weight: bold; }
   #report .rtitle {
     font-size: 1.5em;
     font-weight: bold;
@@ -235,6 +245,27 @@
         if (geo.ip) lines.push('IP address: ' + geo.ip);
         lines.push('Location: ' + geo.place);
         lines.push('Network provider: ' + geo.network);
+
+        // If the browser timezone region doesn't match the geo-IP country,
+        // they're likely on a VPN/proxy — turn that into a scare instead.
+        try {
+          const tzRegion = (Intl.DateTimeFormat().resolvedOptions().timeZone || '')
+            .split('/')[0].replace(/_/g, ' ').toLowerCase();
+          const geoCountry = (geo.place.split(', ').pop() || '').trim().toLowerCase();
+          // Timezone regions are continental, so only flag a mismatch when
+          // it's unambiguous — same-region countries stay quiet.
+          const tzRegionCountries = {
+            'america': ['united states', 'canada', 'mexico', 'brazil', 'argentina', 'colombia', 'chile', 'peru'],
+            'europe': ['united kingdom', 'germany', 'france', 'netherlands', 'spain', 'italy', 'poland', 'sweden', 'norway', 'denmark', 'finland', 'austria', 'switzerland', 'ireland', 'belgium', 'portugal', 'czech', 'greece', 'hungary', 'romania'],
+            'asia': ['china', 'japan', 'india', 'south korea', 'indonesia', 'vietnam', 'thailand', 'philippines', 'malaysia', 'singapore', 'pakistan', 'bangladesh'],
+            'australia': ['australia', 'new zealand'],
+            'africa': ['south africa', 'nigeria', 'egypt', 'kenya', 'morocco']
+          };
+          const allowed = tzRegionCountries[tzRegion] || [];
+          if (geoCountry && allowed.length > 0 && !allowed.some(c => geoCountry.includes(c))) {
+            lines.push('WARNING: location spoofing detected. Deviation logged.');
+          }
+        } catch (e) { /* never block the report over this */ }
       }
 
       lines.push('');
@@ -251,16 +282,33 @@
       report.style.display = 'block';
 
       const lines = await buildReportLines();
-      let lineIndex = 0;
-      const showLine = () => {
-        if (lineIndex < lines.length) {
-          reportBody.textContent += lines[lineIndex] + '\n';
-          lineIndex++;
-          // Slow, deliberate pace so they can actually read each line
-          setTimeout(showLine, 900);
+
+      // All info appears at a semi-instant flash — each line dumps on top
+      // of the previous in a burst, far too fast to read line by line.
+      // They catch fragments: their IP, their city, maybe a word or two.
+      // Then it vanishes before they can scroll up and re-read it.
+      let shown = '';
+      let i = 0;
+      const flashStep = () => {
+        if (i < lines.length) {
+          shown += lines[i] + '\n';
+          reportBody.textContent = shown;
+          i++;
+          setTimeout(flashStep, 70 + Math.random() * 90); // 70–160ms per line
+        } else {
+          // Brief moment where everything is visible...
+          setTimeout(() => {
+            report.classList.add('vanish');
+            // ...then gone. Black screen. No way to read it again.
+            setTimeout(() => {
+              report.style.display = 'none';
+              document.body.style.background = '#000';
+            }, 450);
+          }, 1200);
         }
-        // Report complete — it just stays on screen. Let it sink in.
       };
+      flashStep();
+    });
       showLine();
     });
   </script>
