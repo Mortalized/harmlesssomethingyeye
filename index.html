@@ -3,47 +3,71 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>You've Won a Prize</title>
+<title>Congratulations! You Have Won</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  /* ---------- FAKE GIFT PAGE ---------- */
+  /* ---------- "YOU WON" PAGE (intentionally janky, 2005 spam-ad style) ---------- */
   body.gift {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #ffffff;
+    color: #000;
+    font-family: "Times New Roman", Times, serif;
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #fff;
+    padding: 10px;
+  }
+  .deal {
+    border: 6px ridge #cc0000;
+    background: #ffffcc;
+    width: 440px;
+    max-width: 100%;
     text-align: center;
+    padding: 0;
   }
-  .card {
-    background: rgba(255,255,255,0.12);
-    backdrop-filter: blur(10px);
-    padding: 40px;
-    border-radius: 20px;
-    max-width: 400px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-  }
-  .card h1 { font-size: 2em; margin-bottom: 10px; }
-  .card p { margin-bottom: 25px; opacity: 0.9; }
-  .btn {
-    background: #ffdd57;
-    color: #333;
-    border: none;
-    padding: 15px 40px;
-    font-size: 1.1em;
+  .deal .banner {
+    background: #cc0000;
+    color: #ffff00;
     font-weight: bold;
-    border-radius: 50px;
-    cursor: pointer;
-    transition: transform 0.2s;
+    padding: 6px;
+    font-size: 1.1em;
   }
-  .btn:hover { transform: scale(1.08); }
-  .present { font-size: 5em; animation: bounce 1.5s infinite; display: inline-block; }
-  @keyframes bounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-15px); }
+  .deal .inner { padding: 20px 15px 25px; }
+  .win {
+    color: #cc0000;
+    font-size: 2.2em;
+    font-weight: bold;
+    animation: blink 1s steps(2, start) infinite;
+  }
+  @keyframes blink { to { visibility: hidden; } }
+  .amount {
+    font-size: 3.2em;
+    font-weight: bold;
+    color: #006600;
+    margin: 8px 0;
+    text-transform: uppercase;
+  }
+  .deal p { margin-bottom: 18px; font-size: 1.05em; }
+  .claimbtn {
+    font-family: Verdana, Arial, sans-serif;
+    font-size: 1.05em;
+    font-weight: bold;
+    color: #000;
+    background: #dddddd;
+    border: 4px outset #999999;
+    padding: 12px 30px;
+    cursor: pointer;
+  }
+  .claimbtn:active { border-style: inset; }
+  .fineprint { margin-top: 15px; font-size: 0.75em; color: #555; }
+  .limited {
+    background: #000080;
+    color: #ffffff;
+    font-family: Verdana, Arial, sans-serif;
+    font-size: 0.85em;
+    padding: 4px 0;
+    font-weight: bold;
   }
 
   /* ---------- FAKE SYSTEM MESSAGE ---------- */
@@ -79,6 +103,10 @@
     letter-spacing: 4px;
     text-align: center;
     animation: flicker 0.12s infinite;
+  }
+  @keyframes flicker {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
   }
 
   /* ---------- SCARY PART ---------- */
@@ -126,36 +154,21 @@
     background: rgba(0,0,0,0.5);
     padding: 20px;
   }
-  @keyframes flicker {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
-
-  /* ---------- AFTERMATH ---------- */
-  body.aftermath {
-    background: #000;
-    color: #fff;
-    font-family: "Courier New", monospace;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 20px;
-  }
-  .aftermath h2 { color: #4caf50; font-size: 2em; margin-bottom: 20px; }
-  .aftermath p { max-width: 500px; line-height: 1.6; margin-bottom: 30px; opacity: 0.8; }
-  .aftermath .big { font-size: 4em; margin-bottom: 20px; }
 </style>
 </head>
 <body class="gift">
 
-  <div class="card">
-    <div class="present">&#127873;</div>
-    <h1>You've Won a Prize!</h1>
-    <p>Congratulations! You've been selected to receive a <b>$100 gift card</b>.<br>Click below to claim it!</p>
-    <button class="btn" id="claimBtn">CLAIM NOW</button>
+  <div class="deal">
+    <div class="limited">LIMITED TIME OFFER - ACT NOW</div>
+    <div class="banner">CONGRATULATIONS!!</div>
+    <div class="inner">
+      <div class="win">YOU HAVE BEEN SELECTED!!</div>
+      <div class="amount">$100 Gift Card</div>
+      <p>Your e-mail address was drawn in our weekly visitor giveaway.<br>
+      Claim your reward below before this offer expires.</p>
+      <button class="claimbtn" id="claimBtn">CLICK HERE TO CLAIM</button>
+      <div class="fineprint">*Offer valid for selected visitors only. One reward per household. This is not a subscription.</div>
+    </div>
   </div>
 
   <!-- Scary stuff -->
@@ -206,13 +219,23 @@
       rumble.stop(now + 2);
     }
 
+    // Rapidly toggle fullscreen in and out (works within the click's
+    // activation window; silently skipped if the browser refuses)
+    function flashFullscreen() {
+      const root = document.documentElement;
+      if (!document.fullscreenElement) return;
+      root.exitFullscreen?.().catch(() => {});
+      setTimeout(() => root.requestFullscreen?.().catch(() => {}), 350);
+      setTimeout(() => root.exitFullscreen?.().catch(() => {}), 800);
+      setTimeout(() => root.requestFullscreen?.().catch(() => {}), 1150);
+    }
+
     claimBtn.addEventListener('click', () => {
-      // Fullscreen makes it way scarier (browsers require a user gesture — we have one!)
       document.documentElement.requestFullscreen?.().catch(() => {});
 
       // ---------- PHASE 1: FAKE SYSTEM MESSAGE ----------
       document.body.className = 'terminal';
-      document.querySelector('.card').style.display = 'none';
+      document.querySelector('.deal').style.display = 'none';
       terminal.style.display = 'block';
 
       const lines = [
@@ -230,12 +253,12 @@
         if (lineIndex < lines.length) {
           terminal.textContent += lines[lineIndex] + '\n';
           lineIndex++;
-          setTimeout(typeLine, 350);
+          setTimeout(typeLine, 300);
         } else {
           // ---------- PHASE 2: "THX FOR UR INFO" ----------
           terminal.style.display = 'none';
           stealMsg.style.display = 'flex';
-          setTimeout(startScare, 1400);
+          setTimeout(startScare, 1000);
         }
       };
       typeLine();
@@ -243,6 +266,7 @@
 
     function startScare() {
       playScream();
+      flashFullscreen();
       document.body.className = 'scare';
       scaryFace.style.display = 'flex';
 
@@ -262,21 +286,14 @@
         msgIndex++;
       }, 700);
 
-      // Total scare duration: ~3 seconds, then reveal it's a prank
+      // Scare runs for ~3 seconds, then everything cuts to black. No reveal,
+      // no explanation — they close the tab themselves.
       setTimeout(() => {
         clearInterval(glitchLoop);
         glitchText.style.display = 'none';
+        scaryFace.style.display = 'none';
         stealMsg.style.display = 'none';
-        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-
-        document.body.className = 'aftermath';
-        document.body.innerHTML = `
-          <div class="big">HA HA</div>
-          <h2>GOT YOU!</h2>
-          <p>It was all a prank. Nothing happened to your computer, your files are fine,
-          and nothing was uploaded anywhere. You just got jump-scared by your friend.</p>
-          <p>Click anywhere to continue with your day.</p>
-        `;
+        document.documentElement.exitFullscreen?.().catch(() => {});
       }, 3000);
     }
   </script>
