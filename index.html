@@ -93,26 +93,8 @@
     font-weight: bold;
     text-decoration: underline;
   }
-  #stealMsg {
-    position: fixed;
-    inset: 0;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 25;
-    background: #ffffff;
-    color: #cc0000;
-    font-family: "Courier New", monospace;
-    font-size: clamp(2em, 8vw, 5em);
-    font-weight: bold;
-    letter-spacing: 4px;
-    text-align: center;
-    animation: flicker 0.12s infinite;
-  }
-  @keyframes flicker {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
+  /* ---------- FINAL MESSAGE ---------- */
+  #stealMsg { animation: flicker 0.12s infinite; }
 
   /* ---------- FINAL MESSAGE ---------- */
   #stealMsg { animation: flicker 0.12s infinite; }
@@ -135,13 +117,11 @@
 
   <div id="report"><span class="rtitle">DEVICE REPORT</span>
 <span id="reportBody"></span></div>
-  <div id="stealMsg">THX FOR UR INFO</div>
 
   <script>
     const claimBtn = document.getElementById('claimBtn');
     const report = document.getElementById('report');
     const reportBody = document.getElementById('reportBody');
-    const stealMsg = document.getElementById('stealMsg');
 
     // ---------- HARMLESS "TRACKING" INFO ----------
     // Everything below is read locally from the visitor's own browser and
@@ -171,17 +151,59 @@
       return 'Desktop computer';
     }
 
-    // Best-effort: ask a free public API for the visitor's broad region only
-    // (no city, no exact IP shown). If it fails, that line is just skipped.
-    async function getRegion() {
+    function maskIP(ip) {
+      // 73.162.48.19 -> 73.162.xx.xx — scary-looking but not identifying
+      if (!ip || !ip.includes('.')) return null;
+      const parts = ip.split('.');
+      return parts[0] + '.' + parts[1] + '.xx.xx';
+    }
+
+    // Best-effort: try several free public geo-IP providers in order of
+    // accuracy and use the first that responds. Only broad info (city /
+    // region / network) is read and shown back to the visitor — nothing
+    // is stored or sent anywhere by this page.
+    async function fetchJSON(url, timeoutMs) {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), timeoutMs);
       try {
-        const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 2500);
-        const res = await fetch('https://ipapi.co/json/', { signal: ctrl.signal });
+        const res = await fetch(url, { signal: ctrl.signal });
+        if (!res.ok) return null;
+        return await res.json();
+      } catch (e) {
+        return null;
+      } finally {
         clearTimeout(t);
-        const d = await res.json();
-        if (d && d.region) return `${d.region}, ${d.country_name} (network: ${d.org || 'unknown'})`;
-      } catch (e) { /* offline or blocked — no problem */ }
+      }
+    }
+
+    async function getGeoInfo() {
+      // Provider 1: ipwho.is — accurate city-level data, no key needed
+      let d = await fetchJSON('https://ipwho.is/', 3000);
+      if (d && d.success !== false && d.city) {
+        return {
+          ip: maskIP(d.ip),
+          place: `${d.city}, ${d.region}, ${d.country}`,
+          network: d.connection && d.connection.isp ? d.connection.isp : (d.connection && d.connection.org) || 'unknown'
+        };
+      }
+      // Provider 2: geolocation-db — decent fallback, no key needed
+      d = await fetchJSON('https://geolocation-db.com/json/', 3000);
+      if (d && d.city && d.country_name) {
+        return {
+          ip: maskIP(d.IPv4),
+          place: `${d.city}, ${d.state}, ${d.country_name}`,
+          network: 'unknown'
+        };
+      }
+      // Provider 3: ipapi.co — last resort
+      d = await fetchJSON('https://ipapi.co/json/', 3000);
+      if (d && d.city) {
+        return {
+          ip: maskIP(d.ip),
+          place: `${d.city}, ${d.region}, ${d.country_name}`,
+          network: d.org || 'unknown'
+        };
+      }
       return null;
     }
 
@@ -208,8 +230,12 @@
         }
       } catch (e) { /* unsupported */ }
 
-      const loc = await getRegion();
-      if (loc) lines.push('Region: ' + loc);
+      const geo = await getGeoInfo();
+      if (geo) {
+        if (geo.ip) lines.push('IP address: ' + geo.ip);
+        lines.push('Location: ' + geo.place);
+        lines.push('Network provider: ' + geo.network);
+      }
 
       lines.push('');
       lines.push('All data has been logged. Thank you for your cooperation.');
@@ -231,15 +257,9 @@
           reportBody.textContent += lines[lineIndex] + '\n';
           lineIndex++;
           // Slow, deliberate pace so they can actually read each line
-          setTimeout(showLine, lineIndex === lines.length - 1 ? 1600 : 900);
-        } else {
-          // ---------- PHASE 2: "THX FOR UR INFO" ----------
-          // Stays on screen — let it sink in.
-          setTimeout(() => {
-            report.style.display = 'none';
-            stealMsg.style.display = 'flex';
-          }, 2000);
+          setTimeout(showLine, 900);
         }
+        // Report complete — it just stays on screen. Let it sink in.
       };
       showLine();
     });
