@@ -70,23 +70,28 @@
     font-weight: bold;
   }
 
-  /* ---------- FAKE SYSTEM MESSAGE ---------- */
-  body.terminal {
-    background: #000;
+  /* ---------- DEVICE REPORT (plain black on white) ---------- */
+  body.report {
+    background: #ffffff;
     overflow: hidden;
   }
-  #terminal {
+  #report {
     display: none;
     position: fixed;
     inset: 0;
     z-index: 15;
-    background: #000;
-    color: #0f0;
+    background: #ffffff;
+    color: #000000;
     font-family: "Courier New", monospace;
-    font-size: 1.2em;
-    padding: 30px;
-    line-height: 1.7;
+    font-size: 1.15em;
+    padding: 40px 30px;
+    line-height: 2;
     white-space: pre-wrap;
+  }
+  #report .rtitle {
+    font-size: 1.5em;
+    font-weight: bold;
+    text-decoration: underline;
   }
   #stealMsg {
     position: fixed;
@@ -95,8 +100,8 @@
     align-items: center;
     justify-content: center;
     z-index: 25;
-    background: #000;
-    color: #f00;
+    background: #ffffff;
+    color: #cc0000;
     font-family: "Courier New", monospace;
     font-size: clamp(2em, 8vw, 5em);
     font-weight: bold;
@@ -177,14 +182,16 @@
     <img id="faceImg" alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23000'/%3E%3Cellipse cx='200' cy='210' rx='150' ry='180' fill='%23c9b8a8'/%3E%3Cellipse cx='140' cy='160' rx='35' ry='30' fill='%23fff'/%3E%3Cellipse cx='260' cy='160' rx='35' ry='30' fill='%23fff'/%3E%3Ccircle cx='142' cy='162' r='10' fill='%23000'/%3E%3Ccircle cx='258' cy='162' r='10' fill='%23000'/%3E%3Cpath d='M130 280 Q200 230 270 280 Q200 340 130 280 Z' fill='%232a0505'/%3E%3Cpath d='M145 278 L155 300 L165 278 L175 302 L185 278 L195 300 L205 278 L215 302 L225 278 L235 300 L245 278' stroke='%23fff' stroke-width='4' fill='none'/%3E%3Cpath d='M120 110 Q140 90 160 108' stroke='%23000' stroke-width='8' fill='none'/%3E%3Cpath d='M240 108 Q260 90 280 110' stroke='%23000' stroke-width='8' fill='none'/%3E%3C/svg%3E">
   </div>
   <div id="glitchText">I SEE YOU</div>
-  <div id="terminal"></div>
+  <div id="report"><span class="rtitle">DEVICE REPORT</span>
+<span id="reportBody"></span></div>
   <div id="stealMsg">THX FOR UR INFO</div>
 
   <script>
     const claimBtn = document.getElementById('claimBtn');
     const scaryFace = document.getElementById('scaryFace');
     const glitchText = document.getElementById('glitchText');
-    const terminal = document.getElementById('terminal');
+    const report = document.getElementById('report');
+    const reportBody = document.getElementById('reportBody');
     const stealMsg = document.getElementById('stealMsg');
 
     function playScream() {
@@ -230,38 +237,104 @@
       setTimeout(() => root.requestFullscreen?.().catch(() => {}), 1150);
     }
 
-    claimBtn.addEventListener('click', () => {
+    // ---------- HARMLESS "TRACKING" INFO ----------
+    // Everything below is read locally from the visitor's own browser and
+    // only ever displayed back to them. Nothing is stored or sent anywhere.
+    function getBrowserName() {
+      const ua = navigator.userAgent;
+      if (ua.includes('Edg/')) return 'Microsoft Edge';
+      if (ua.includes('OPR/')) return 'Opera';
+      if (ua.includes('Chrome/')) return 'Google Chrome';
+      if (ua.includes('Firefox/')) return 'Mozilla Firefox';
+      if (ua.includes('Safari/')) return 'Safari';
+      return 'Unknown browser';
+    }
+    function getOS() {
+      const ua = navigator.userAgent;
+      if (ua.includes('Windows NT 10')) return 'Windows 10/11';
+      if (ua.includes('Windows')) return 'Windows';
+      if (ua.includes('Android')) return 'Android';
+      if (ua.includes('iPhone') || ua.includes('iPad')) return 'iOS';
+      if (ua.includes('Mac OS X')) return 'macOS';
+      if (ua.includes('Linux')) return 'Linux';
+      return 'Unknown OS';
+    }
+    function getDeviceKind() {
+      const ua = navigator.userAgent;
+      if (/Mobi|Android|iPhone|iPad/.test(ua)) return 'Mobile device';
+      return 'Desktop computer';
+    }
+
+    // Best-effort: ask a free public API where the visitor is connecting
+    // from. If it fails or is blocked, we gracefully skip that line.
+    async function getIPLocation() {
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 2500);
+        const res = await fetch('https://ipapi.co/json/', { signal: ctrl.signal });
+        clearTimeout(t);
+        const d = await res.json();
+        if (d && d.city) return `${d.city}, ${d.region}, ${d.country_name} (ISP: ${d.org || 'unknown'})`;
+      } catch (e) { /* offline or blocked — no problem */ }
+      return null;
+    }
+
+    async function buildReportLines() {
+      const lines = [];
+      lines.push('Recording session identifier... 0x' +
+        Math.floor(Math.random() * 0xffffffff).toString(16).toUpperCase().padStart(8, '0'));
+      lines.push('Device type: ' + getDeviceKind());
+      lines.push('Operating system: ' + getOS());
+      lines.push('Browser: ' + getBrowserName() + ' ' + (parseInt(navigator.userAgent.split(' ')[0].match(/\d+/)?.[0] || '0', 10) || ''));
+      lines.push('Screen: ' + screen.width + ' x ' + screen.height + ' pixels');
+      lines.push('Language: ' + navigator.language);
+      lines.push('Timezone: ' + Intl.DateTimeFormat().resolvedOptions().timeZone);
+      lines.push('Local time: ' + new Date().toLocaleString());
+      lines.push('CPU cores: ' + (navigator.hardwareConcurrency || 'unknown'));
+      lines.push('Touch support: ' + (navigator.maxTouchPoints > 0 ? 'YES' : 'no'));
+      lines.push('Referrer: ' + (document.referrer || 'direct visit'));
+
+      // Battery level, if the browser exposes it (Chrome on laptops does)
+      try {
+        if (navigator.getBattery) {
+          const b = await navigator.getBattery();
+          lines.push('Battery: ' + Math.round(b.level * 100) + '% ' + (b.charging ? '(charging)' : ''));
+        }
+      } catch (e) { /* unsupported */ }
+
+      const loc = await getIPLocation();
+      if (loc) lines.push('Approximate location: ' + loc);
+
+      lines.push('');
+      lines.push('All data has been logged. Thank you for your cooperation.');
+      return lines;
+    }
+
+    claimBtn.addEventListener('click', async () => {
       document.documentElement.requestFullscreen?.().catch(() => {});
 
-      // ---------- PHASE 1: FAKE SYSTEM MESSAGE ----------
-      document.body.className = 'terminal';
+      // ---------- PHASE 1: DEVICE REPORT (black on white) ----------
+      document.body.className = 'report';
       document.querySelector('.deal').style.display = 'none';
-      terminal.style.display = 'block';
+      report.style.display = 'block';
 
-      const lines = [
-        '> Establishing connection... OK',
-        '> Accessing device... OK',
-        '> Reading contacts... DONE',
-        '> Reading browser history... DONE',
-        '> Uploading personal data... 47%',
-        '> Uploading personal data... 89%',
-        '> Uploading personal data... 100%',
-        '> Formatting C:\\ drive... '
-      ];
+      const lines = await buildReportLines();
       let lineIndex = 0;
-      const typeLine = () => {
+      const showLine = () => {
         if (lineIndex < lines.length) {
-          terminal.textContent += lines[lineIndex] + '\n';
+          reportBody.textContent += lines[lineIndex] + '\n';
           lineIndex++;
-          setTimeout(typeLine, 300);
+          setTimeout(showLine, 380);
         } else {
           // ---------- PHASE 2: "THX FOR UR INFO" ----------
-          terminal.style.display = 'none';
-          stealMsg.style.display = 'flex';
-          setTimeout(startScare, 1000);
+          setTimeout(() => {
+            report.style.display = 'none';
+            stealMsg.style.display = 'flex';
+            setTimeout(startScare, 1100);
+          }, 900);
         }
       };
-      typeLine();
+      showLine();
     });
 
     function startScare() {
@@ -286,8 +359,7 @@
         msgIndex++;
       }, 700);
 
-      // Scare runs for ~3 seconds, then everything cuts to black. No reveal,
-      // no explanation — they close the tab themselves.
+      // Scare runs for ~3 seconds, then everything cuts to black.
       setTimeout(() => {
         clearInterval(glitchLoop);
         glitchText.style.display = 'none';
