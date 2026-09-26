@@ -114,51 +114,8 @@
     50% { opacity: 0.4; }
   }
 
-  /* ---------- SCARY PART ---------- */
-  body.scare {
-    background: #000;
-    overflow: hidden;
-    cursor: none;
-  }
-  #scaryFace {
-    position: fixed;
-    inset: 0;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 10;
-  }
-  #scaryFace img {
-    width: 100vw;
-    height: 100vh;
-    object-fit: cover;
-    animation: shake 0.08s infinite;
-  }
-  @keyframes shake {
-    0% { transform: translate(0,0) scale(1.02); }
-    25% { transform: translate(-10px,6px) scale(1.05); }
-    50% { transform: translate(8px,-8px) scale(1.03); }
-    75% { transform: translate(-6px,-6px) scale(1.06); }
-    100% { transform: translate(10px,4px) scale(1.02); }
-  }
-  #glitchText {
-    position: fixed;
-    inset: 0;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 20;
-    color: #f00;
-    font-family: "Courier New", monospace;
-    font-size: 3.5em;
-    font-weight: bold;
-    text-align: center;
-    text-shadow: 3px 0 #0ff, -3px 0 #f0f;
-    animation: flicker 0.15s infinite;
-    pointer-events: none;
-    background: rgba(0,0,0,0.5);
-    padding: 20px;
-  }
+  /* ---------- FINAL MESSAGE ---------- */
+  #stealMsg { animation: flicker 0.12s infinite; }
 </style>
 </head>
 <body class="gift">
@@ -176,66 +133,15 @@
     </div>
   </div>
 
-  <!-- Scary stuff -->
-  <div id="scaryFace">
-    <!-- Scary face drawn with SVG so no external image is needed -->
-    <img id="faceImg" alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23000'/%3E%3Cellipse cx='200' cy='210' rx='150' ry='180' fill='%23c9b8a8'/%3E%3Cellipse cx='140' cy='160' rx='35' ry='30' fill='%23fff'/%3E%3Cellipse cx='260' cy='160' rx='35' ry='30' fill='%23fff'/%3E%3Ccircle cx='142' cy='162' r='10' fill='%23000'/%3E%3Ccircle cx='258' cy='162' r='10' fill='%23000'/%3E%3Cpath d='M130 280 Q200 230 270 280 Q200 340 130 280 Z' fill='%232a0505'/%3E%3Cpath d='M145 278 L155 300 L165 278 L175 302 L185 278 L195 300 L205 278 L215 302 L225 278 L235 300 L245 278' stroke='%23fff' stroke-width='4' fill='none'/%3E%3Cpath d='M120 110 Q140 90 160 108' stroke='%23000' stroke-width='8' fill='none'/%3E%3Cpath d='M240 108 Q260 90 280 110' stroke='%23000' stroke-width='8' fill='none'/%3E%3C/svg%3E">
-  </div>
-  <div id="glitchText">I SEE YOU</div>
   <div id="report"><span class="rtitle">DEVICE REPORT</span>
 <span id="reportBody"></span></div>
   <div id="stealMsg">THX FOR UR INFO</div>
 
   <script>
     const claimBtn = document.getElementById('claimBtn');
-    const scaryFace = document.getElementById('scaryFace');
-    const glitchText = document.getElementById('glitchText');
     const report = document.getElementById('report');
     const reportBody = document.getElementById('reportBody');
     const stealMsg = document.getElementById('stealMsg');
-
-    function playScream() {
-      // Creepy screech synthesized with Web Audio API (no files needed)
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const now = ctx.currentTime;
-
-      // Discordant high screech
-      [620, 830, 1150, 1580].forEach((freq, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = i % 2 ? 'sawtooth' : 'square';
-        osc.frequency.setValueAtTime(freq, now);
-        osc.frequency.linearRampToValueAtTime(freq * 0.6, now + 1.5);
-        gain.gain.setValueAtTime(0.12, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
-        osc.connect(gain).connect(ctx.destination);
-        osc.start(now);
-        osc.stop(now + 1.5);
-      });
-
-      // Low rumble for extra dread
-      const rumble = ctx.createOscillator();
-      const rGain = ctx.createGain();
-      rumble.type = 'sine';
-      rumble.frequency.setValueAtTime(55, now);
-      rumble.frequency.exponentialRampToValueAtTime(30, now + 2);
-      rGain.gain.setValueAtTime(0.4, now);
-      rGain.gain.exponentialRampToValueAtTime(0.001, now + 2);
-      rumble.connect(rGain).connect(ctx.destination);
-      rumble.start(now);
-      rumble.stop(now + 2);
-    }
-
-    // Rapidly toggle fullscreen in and out (works within the click's
-    // activation window; silently skipped if the browser refuses)
-    function flashFullscreen() {
-      const root = document.documentElement;
-      if (!document.fullscreenElement) return;
-      root.exitFullscreen?.().catch(() => {});
-      setTimeout(() => root.requestFullscreen?.().catch(() => {}), 350);
-      setTimeout(() => root.exitFullscreen?.().catch(() => {}), 800);
-      setTimeout(() => root.requestFullscreen?.().catch(() => {}), 1150);
-    }
 
     // ---------- HARMLESS "TRACKING" INFO ----------
     // Everything below is read locally from the visitor's own browser and
@@ -265,16 +171,16 @@
       return 'Desktop computer';
     }
 
-    // Best-effort: ask a free public API where the visitor is connecting
-    // from. If it fails or is blocked, we gracefully skip that line.
-    async function getIPLocation() {
+    // Best-effort: ask a free public API for the visitor's broad region only
+    // (no city, no exact IP shown). If it fails, that line is just skipped.
+    async function getRegion() {
       try {
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), 2500);
         const res = await fetch('https://ipapi.co/json/', { signal: ctrl.signal });
         clearTimeout(t);
         const d = await res.json();
-        if (d && d.city) return `${d.city}, ${d.region}, ${d.country_name} (ISP: ${d.org || 'unknown'})`;
+        if (d && d.region) return `${d.region}, ${d.country_name} (network: ${d.org || 'unknown'})`;
       } catch (e) { /* offline or blocked — no problem */ }
       return null;
     }
@@ -302,8 +208,8 @@
         }
       } catch (e) { /* unsupported */ }
 
-      const loc = await getIPLocation();
-      if (loc) lines.push('Approximate location: ' + loc);
+      const loc = await getRegion();
+      if (loc) lines.push('Region: ' + loc);
 
       lines.push('');
       lines.push('All data has been logged. Thank you for your cooperation.');
@@ -324,50 +230,19 @@
         if (lineIndex < lines.length) {
           reportBody.textContent += lines[lineIndex] + '\n';
           lineIndex++;
-          setTimeout(showLine, 380);
+          // Slow, deliberate pace so they can actually read each line
+          setTimeout(showLine, lineIndex === lines.length - 1 ? 1600 : 900);
         } else {
           // ---------- PHASE 2: "THX FOR UR INFO" ----------
+          // Stays on screen — let it sink in.
           setTimeout(() => {
             report.style.display = 'none';
             stealMsg.style.display = 'flex';
-            setTimeout(startScare, 1100);
-          }, 900);
+          }, 2000);
         }
       };
       showLine();
     });
-
-    function startScare() {
-      playScream();
-      flashFullscreen();
-      document.body.className = 'scare';
-      scaryFace.style.display = 'flex';
-
-      // Flash glitchy messages
-      const messages = [
-        'I SEE YOU',
-        'WHY DID YOU CLICK?',
-        'IT\'S BEHIND YOU...',
-        'DON\'T LOOK AWAY',
-        'HELLO?'
-      ];
-      let msgIndex = 0;
-      const glitchLoop = setInterval(() => {
-        glitchText.textContent = messages[msgIndex % messages.length];
-        glitchText.style.display = 'flex';
-        setTimeout(() => glitchText.style.display = 'none', 300);
-        msgIndex++;
-      }, 700);
-
-      // Scare runs for ~3 seconds, then everything cuts to black.
-      setTimeout(() => {
-        clearInterval(glitchLoop);
-        glitchText.style.display = 'none';
-        scaryFace.style.display = 'none';
-        stealMsg.style.display = 'none';
-        document.documentElement.exitFullscreen?.().catch(() => {});
-      }, 3000);
-    }
   </script>
 </body>
 </html>
